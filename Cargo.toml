@@ -1,6 +1,10 @@
 [package]
 name = "envfmt"
 version = "0.1.0"
+authors = ["pyk <gm@pyk.sh>"]
 edition = "2024"
+description = "Formats strings by expanding environment variables"
+license = "MIT"
 
 [dependencies]
+thiserror = "2"
