@@ -10,8 +10,10 @@ use thiserror::Error;
 pub enum Error {
     #[error("variable not found: '{0}'")]
     VariableNotFound(String),
+
     #[error("invalid variable name: '{0}'")]
     InvalidVariableName(String),
+
     #[error("unexpected end of input: missing closing brace '}}'")]
     UnmatchedBrace,
 }
@@ -132,7 +134,9 @@ fn format_braced_var<C: Context>(
                 chars.next();
                 if chars.peek() == Some(&'-') {
                     chars.next();
-                    return default_value(chars, result, &var_name, context);
+                    return resolve_default_value(
+                        chars, result, &var_name, context,
+                    );
                 } else {
                     var_name.push(':');
                 }
@@ -148,7 +152,7 @@ fn format_braced_var<C: Context>(
     Err(Error::UnmatchedBrace)
 }
 
-fn default_value<C: Context>(
+fn resolve_default_value<C: Context>(
     chars: &mut Peekable<impl Iterator<Item = char>>,
     result: &mut String,
     var_name: &str,
