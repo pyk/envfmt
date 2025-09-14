@@ -277,7 +277,7 @@ fn resolve_default_value<C: Context>(
         let mut brace_level = 0;
         // We need to discard the default value part, so we consume until the
         // matching '}'
-        while let Some(c) = chars.next() {
+        for c in chars.by_ref() {
             match c {
                 '{' => brace_level += 1,
                 '}' => {
@@ -296,7 +296,7 @@ fn resolve_default_value<C: Context>(
     // If variable is not in context, use the default value.
     let mut default_value = String::new();
     let mut brace_level = 0;
-    while let Some(c) = chars.next() {
+    for c in chars.by_ref() {
         match c {
             '{' => {
                 brace_level += 1;
@@ -313,7 +313,6 @@ fn resolve_default_value<C: Context>(
             _ => default_value.push(c),
         }
     }
-
     Err(Error::UnclosedBrace)
 }
 
