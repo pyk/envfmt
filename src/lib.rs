@@ -1,29 +1,104 @@
+//! Formats strings by expanding variables, similar to shell expansion.
+//!
+//! This crate provides a simple and efficient way to substitute variables in a
+//! string, using either the process environment or a custom context like a
+//! `HashMap`.
+//!
+//! The main entry points are the [`format()`] and [`format_with()`] functions.
+//!
+//! ## Syntax
+//!
+//! The formatting syntax is designed to be familiar to users of Unix shells.
+//!
+//! - `$VAR` Simple variables
+//!   - A variable name starts with an alphabetic character or an underscore,
+//!     followed by any number of alphanumeric characters or underscores.
+//!   - The expansion is greedy, meaning it will match the longest possible
+//!     valid variable name.
+//!
+//! - `${VAR}` Braced variables
+//!   - This syntax is useful for separating a variable name from subsequent
+//!     characters.
+//!
+//! - `${VAR:-default}` Default values
+//!   - If `VAR` is not found in the context, the `default` value is used
+//!     instead.
+//!   - If `VAR` is present in the context, even if its value is an empty
+//!     string, the default is **not** used. This matches standard shell
+//!     behavior.
+//!
+//! - `$$` Escaping
+//!   - To include a literal dollar sign in the output, use `$$`.
+//!
+//! ## Examples
+//!
+//! Using environment variables:
+//!
+//! ```rust
+//! let formatted = envfmt::format("This package is $CARGO_PKG_NAME.").unwrap();
+//! assert_eq!(formatted, "This package is envfmt.");
+//! ```
+//!
+//! Using a custom context:
+//!
+//! ```
+//! use std::collections::HashMap;
+//!
+//! let mut context = HashMap::new();
+//! context.insert("thing", "world");
+//!
+//! let input = "Hello, ${thing}!";
+//! let result = envfmt::format_with(input, &context).unwrap();
+//!
+//! assert_eq!(result, "Hello, world!");
+//! ```
+
 use std::{
+    borrow::Borrow,
     collections::HashMap,
     env,
+    hash::Hash,
     iter::Peekable,
 };
 
 use thiserror::Error;
 
+/// Represents errors that can occur during formatting.
 #[derive(Debug, Error, PartialEq)]
 pub enum Error {
+    /// A required variable was not found in the context.
     #[error("variable not found: '{0}'")]
     VariableNotFound(String),
 
+    /// A variable name was invalid, e.g `${}`.
     #[error("invalid variable name: '{0}'")]
     InvalidVariableName(String),
 
+    /// The input string have an unclosed brace.
     #[error("unexpected end of input: missing closing brace '}}'")]
-    UnmatchedBrace,
+    UnclosedBrace,
 }
 
+/// A trait for providing values for variable expansion.
+///
+/// This allows [`format_with`] to be generic over the source of the
+/// variables, making it easy to test with a `HashMap` or use with environment
+/// variables.
 pub trait Context {
+    /// Retrieves a value for a given key.
+    ///
+    /// # Parameters
+    /// - `key`: The name of the variable to look up.
+    ///
+    /// # Returns
+    /// - `Some(String)` if the key exists.
+    /// - `None` if the key does not exist.
     fn get(&self, key: &str) -> Option<String>;
 }
 
-impl<S> Context for HashMap<String, S>
+impl<K, S> Context for HashMap<K, S>
 where
+    K: Borrow<str> + Eq + Hash,
     S: AsRef<str>,
 {
     fn get(&self, key: &str) -> Option<String> {
@@ -31,6 +106,7 @@ where
     }
 }
 
+// A `Context` implementation that reads from the process environment variables.
 struct Env;
 
 impl Context for Env {
@@ -39,6 +115,38 @@ impl Context for Env {
     }
 }
 
+/// Formats a string by expanding variables from a given context.
+///
+/// This is the generic version of the formatting function, which accepts any
+/// type that implements the [`Context`] trait as the source for variable
+/// values.
+///
+/// # Parameters
+/// - `input`: The string template to format.
+/// - `context`: A reference to a context that provides variable values.
+///
+/// # Returns
+/// - `Ok(String)` with the formatted string if successful.
+/// - `Err(Error)` if a variable is not found or the syntax is invalid.
+///
+/// # Examples
+///
+/// ```
+/// use std::collections::HashMap;
+/// use envfmt::{format_with, Context, Error};
+///
+/// let mut context = HashMap::new();
+/// context.insert("VAR", "value");
+///
+/// // Successful expansion
+/// assert_eq!(format_with("Hello, $VAR", &context).unwrap(), "Hello, value");
+///
+/// // Variable not found
+/// assert_eq!(
+///     format_with("Hello, $MISSING", &context).unwrap_err(),
+///     Error::VariableNotFound("MISSING".to_string())
+/// );
+/// ```
 pub fn format_with<C: Context>(
     input: &str,
     context: &C,
@@ -78,6 +186,7 @@ pub fn format_with<C: Context>(
     Ok(result)
 }
 
+// Expands $VAR
 fn format_var<C: Context>(
     chars: &mut Peekable<impl Iterator<Item = char>>,
     result: &mut String,
@@ -107,6 +216,7 @@ fn format_var<C: Context>(
     Ok(())
 }
 
+// Expands ${VAR}
 fn format_braced_var<C: Context>(
     chars: &mut Peekable<impl Iterator<Item = char>>,
     result: &mut String,
@@ -149,7 +259,7 @@ fn format_braced_var<C: Context>(
     }
 
     // If we exit the loop, it means we ran out of characters before finding '}'
-    Err(Error::UnmatchedBrace)
+    Err(Error::UnclosedBrace)
 }
 
 fn resolve_default_value<C: Context>(
@@ -180,7 +290,7 @@ fn resolve_default_value<C: Context>(
                 _ => {}
             }
         }
-        return Err(Error::UnmatchedBrace);
+        return Err(Error::UnclosedBrace);
     }
 
     // If variable is not in context, use the default value.
@@ -204,9 +314,20 @@ fn resolve_default_value<C: Context>(
         }
     }
 
-    Err(Error::UnmatchedBrace)
+    Err(Error::UnclosedBrace)
 }
 
+/// Formats a string by expanding variables from the process environment.
+///
+/// This is a convenience wrapper around [`format_with`] that uses
+/// `std::env::vars` as the context.
+///
+/// # Examples
+///
+/// ```
+/// let formatted = envfmt::format("This package is $CARGO_PKG_NAME.").unwrap();
+/// assert_eq!(formatted, "This package is envfmt.");
+/// ```
 pub fn format(input: &str) -> Result<String, Error> {
     format_with(input, &Env)
 }
@@ -364,11 +485,11 @@ mod tests {
         let ctx = create_context();
         assert_eq!(
             format_with("test ${VAR1", &ctx).unwrap_err(),
-            Error::UnmatchedBrace
+            Error::UnclosedBrace
         );
         assert_eq!(
             format_with("test ${UNSET:-default", &ctx).unwrap_err(),
-            Error::UnmatchedBrace
+            Error::UnclosedBrace
         );
     }
 
