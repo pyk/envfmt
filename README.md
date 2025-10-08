@@ -7,6 +7,13 @@ This crate provides a simple and efficient way to substitute variables in a
 string, using either the process environment or a custom context like a
 `HashMap`.
 
+- [Overview](https://pyk.sh/envfmt)
+- [Getting Started](https://pyk.sh/envfmt/getting-started)
+- [Use HashMap as Data Source](https://pyk.sh/envfmt/guides/use-hashmap)
+- [Provide Default Values](https://pyk.sh/envfmt/guides/default-values)
+- [Escape a Dollar Sign](https://pyk.sh/envfmt/guides/escape-dollar-sign)
+- [Implement the Context Trait](https://pyk.sh/envfmt/guides/context-trait)
+
 ## Features
 
 - **Zero Dependencies**: `envfmt` is built with only the Rust standard library
