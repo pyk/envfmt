@@ -6,29 +6,14 @@
 //!
 //! The main entry points are the [`format()`] and [`format_with()`] functions.
 //!
-//! ## Syntax
+//! ## Docs
 //!
-//! The formatting syntax is designed to be familiar to users of Unix shells.
-//!
-//! - `$VAR` Simple variables
-//!   - A variable name starts with an alphabetic character or an underscore,
-//!     followed by any number of alphanumeric characters or underscores.
-//!   - The expansion is greedy, meaning it will match the longest possible
-//!     valid variable name.
-//!
-//! - `${VAR}` Braced variables
-//!   - This syntax is useful for separating a variable name from subsequent
-//!     characters.
-//!
-//! - `${VAR:-default}` Default values
-//!   - If `VAR` is not found in the context, the `default` value is used
-//!     instead.
-//!   - If `VAR` is present in the context, even if its value is an empty
-//!     string, the default is **not** used. This matches standard shell
-//!     behavior.
-//!
-//! - `$$` Escaping
-//!   - To include a literal dollar sign in the output, use `$$`.
+//! - [Overview](https://pyk.sh/envfmt)
+//! - [Getting Started](https://pyk.sh/envfmt/getting-started)
+//! - [Use HashMap as Data Source](https://pyk.sh/envfmt/guides/use-hashmap)
+//! - [Provide Default Values](https://pyk.sh/envfmt/guides/default-values)
+//! - [Escape a Dollar Sign](https://pyk.sh/envfmt/guides/escape-dollar-sign)
+//! - [Implement the Context Trait](https://pyk.sh/envfmt/guides/context-trait)
 //!
 //! ## Examples
 //!
@@ -57,27 +42,41 @@ use std::{
     borrow::Borrow,
     collections::HashMap,
     env,
+    fmt,
     hash::Hash,
     iter::Peekable,
 };
 
-use thiserror::Error;
-
 /// Represents errors that can occur during formatting.
-#[derive(Debug, Error, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub enum Error {
     /// A required variable was not found in the context.
-    #[error("variable not found: '{0}'")]
     VariableNotFound(String),
 
     /// A variable name was invalid, e.g `${}`.
-    #[error("invalid variable name: '{0}'")]
     InvalidVariableName(String),
 
     /// The input string have an unclosed brace.
-    #[error("unexpected end of input: missing closing brace '}}'")]
     UnclosedBrace,
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Error::VariableNotFound(var) => {
+                write!(f, "variable not found: '{}'", var)
+            }
+            Error::InvalidVariableName(var) => {
+                write!(f, "invalid variable name: '{}'", var)
+            }
+            Error::UnclosedBrace => {
+                write!(f, "unexpected end of input: missing closing brace '}}'")
+            }
+        }
+    }
+}
+
+impl std::error::Error for Error {}
 
 /// A trait for providing values for variable expansion.
 ///

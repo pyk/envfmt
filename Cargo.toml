@@ -3,11 +3,10 @@ name = "envfmt"
 version = "0.1.0"
 authors = ["pyk <gm@pyk.sh>"]
 edition = "2024"
-description = "Formats strings by expanding environment variables"
-documentation = "https://docs.rs/envfmt"
-homepage = "https://github.com/pyk/envfmt"
+description = "Expands environment variables in string"
+documentation = "https://pyk.sh/envfmt"
+homepage = "https://pyk.sh/envfmt"
 repository = "https://github.com/pyk/envfmt"
 license = "MIT"
 
-[dependencies]
-thiserror = "2"
+
