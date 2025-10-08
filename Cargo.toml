@@ -1,6 +1,6 @@
 [package]
 name = "envfmt"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["pyk <gm@pyk.sh>"]
 edition = "2024"
 description = "Expands environment variables in string"
